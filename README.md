@@ -1,18 +1,23 @@
-# CS180 Project 0 — Becoming Friends with Your Camera
+# CS180 project pages
 
-Static project page. `index.html` plus the `media/` folder is the whole site.
+Static site. `index.html` is the landing page with one button per project.
+
+- `proj0/` — Project 0, Becoming Friends with Your Camera. `proj0/index.html` plus `proj0/media/`.
+- `proj1/` — Project 1, Colorizing the Prokudin-Gorskii Collection. `proj1/index.html`, `proj1/media/` (web-sized outputs and `results.json`), and the alignment code (`colorize.py`, which only uses library calls for reading, resizing, and writing images).
+
+## Project 1 pipeline
+
+    python3 -m venv .venv
+    .venv/bin/pip install numpy scikit-image imageio
+    cd proj1
+    ../.venv/bin/python colorize.py data/*.jpg data/*.tif --metric ncc
+    ../.venv/bin/python colorize.py data/emir.tif --metric ncc --suffix _raw --tag ncc
+    ../.venv/bin/python colorize.py data/*.jpg data/*.tif --metric ncc --feature grad
+    ../.venv/bin/python colorize.py data/*.jpg data/*.tif --metric ssd --out /tmp/ssd --web /tmp/ssd_web
+    ../.venv/bin/python build_page.py
+
+Put input plates in `proj1/data/` (gitignored). `colorize.py` writes full-resolution results to `proj1/out/` (gitignored), web-sized JPEGs and offsets to `proj1/media/`, and `build_page.py` regenerates `proj1/index.html` from `proj1/media/results.json`. Any plate not in the course set is listed under "Additional plates".
 
 ## Publish on GitHub Pages
 
-1. Create a new public repository on GitHub (for example `cs180-proj0`).
-2. In this folder:
-
-       git init
-       git add .
-       git commit -m "Project 0 site"
-       git branch -M main
-       git remote add origin git@github.com:<your-username>/cs180-proj0.git
-       git push -u origin main
-
-3. On GitHub: Settings → Pages → Source: "Deploy from a branch", Branch: `main`, folder `/ (root)`. Save.
-4. The site appears at `https://<your-username>.github.io/cs180-proj0/` after a minute or two.
+Push `main` and set Settings → Pages → Source: "Deploy from a branch", Branch: `main`, folder `/ (root)`. The site appears at `https://<your-username>.github.io/cs180-proj0/`.
