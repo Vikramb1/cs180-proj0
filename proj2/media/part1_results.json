@@ -1,0 +1,27 @@
+{
+  "part_1_1": {
+    "image_shape": [
+      600,
+      450
+    ],
+    "seconds_four_loops": 5.227,
+    "seconds_two_loops": 0.67,
+    "seconds_scipy": 0.03324,
+    "max_diff_four_vs_scipy": 2.220446049250313e-15,
+    "max_diff_two_vs_scipy": 1.7763568394002505e-15,
+    "max_diff_dx_vs_scipy": 0.0,
+    "max_diff_dy_vs_scipy": 0.0,
+    "max_diff_even_kernel_vs_scipy": 2.842170943040401e-14
+  },
+  "part_1_2": {
+    "threshold": 0.25
+  },
+  "part_1_3": {
+    "sigma": 2.0,
+    "kernel_size": 13,
+    "threshold": 0.06,
+    "max_diff_interior": 1.584236214435819e-15,
+    "max_diff_everywhere": 1.584236214435819e-15,
+    "edge_pixels_that_differ": 0
+  }
+}

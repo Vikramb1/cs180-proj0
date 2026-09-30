@@ -4,3 +4,4 @@ proj1/out/
 __pycache__/
 .DS_Store
 .claude/
+proj2/data/

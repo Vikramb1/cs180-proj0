@@ -18,6 +18,16 @@ Static site. `index.html` is the landing page with one button per project.
 
 Put input plates in `proj1/data/` (gitignored). `colorize.py` writes full-resolution results to `proj1/out/` (gitignored), web-sized JPEGs and offsets to `proj1/media/`, and `build_page.py` regenerates `proj1/index.html` from `proj1/media/results.json`. Any plate not in the course set is listed under "Additional plates".
 
+## Project 2 pipeline
+
+    .venv/bin/pip install scipy opencv-python-headless matplotlib
+    cd proj2
+    ../.venv/bin/python part1.py
+    ../.venv/bin/python part2.py
+    ../.venv/bin/python build_page.py
+
+`data/` holds the course images (`cameraman.png`, `taj.jpg`, `spline/`, `hybrid_starter/`). The hybrids and blends also read photos from `../proj0/media` and the full-size Project 1 outputs in `../proj1/out`.
+
 ## Publish on GitHub Pages
 
 Push `main` and set Settings → Pages → Source: "Deploy from a branch", Branch: `main`, folder `/ (root)`. The site appears at `https://<your-username>.github.io/cs180-proj0/`.

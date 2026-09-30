@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS180 Project 2 · Fun with Filters and Frequencies</title>
+<style>
+  :root { --bg: #faf9f6; --ink: #1b1b1b; --rule: #e3e0d9; --max: 960px; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 Georgia, "Iowan Old Style", "Times New Roman", serif; }
+  header, main, footer { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+  header { padding-top: 64px; padding-bottom: 40px; border-bottom: 1px solid var(--rule); }
+  a { color: var(--ink); }
+  .back, .eyebrow, nav, figcaption, table, footer { font-size: 15px; }
+  .back { margin: 0 0 20px; }
+  .back a { text-decoration: none; }
+  .eyebrow { margin: 0 0 16px; }
+  h1 { font-size: 40px; line-height: 1.15; font-weight: 400; margin: 0 0 12px; }
+  header p { margin: 0; }
+  nav { margin-top: 24px; }
+  nav a { text-decoration: none; margin-right: 20px; border-bottom: 1px solid var(--rule); }
+  section { padding: 56px 0; border-bottom: 1px solid var(--rule); }
+  section:last-of-type { border-bottom: 0; }
+  h2 { font-size: 28px; font-weight: 400; margin: 0 0 24px; }
+  h3 { font-size: 20px; font-weight: 400; margin: 32px 0 12px; }
+  p { margin: 0 0 16px; }
+  .grid { display: grid; gap: 20px 16px; margin: 20px 0 28px; }
+  .c2 { grid-template-columns: repeat(2, 1fr); }
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .c4 { grid-template-columns: repeat(4, 1fr); }
+  .c5 { grid-template-columns: repeat(5, 1fr); }
+  .narrow { max-width: 460px; margin: 20px auto 28px; }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 4px; background: #ddd; }
+  figcaption { margin-top: 6px; }
+  pre { overflow-x: auto; background: #fff; border: 1px solid var(--rule); border-radius: 4px; padding: 14px 16px; margin: 0 0 20px; }
+  code { font: inherit; font-size: 14px; white-space: pre; }
+  .tablewrap { overflow-x: auto; margin: 0 0 20px; }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 14px 8px 0; border-bottom: 1px solid var(--rule); font-weight: normal; white-space: nowrap; }
+  footer { padding: 40px 24px 64px; }
+  @media (max-width: 640px) { h1 { font-size: 30px; } .c3, .c4 { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="back"><a href="../">← All projects</a></p>
+  <p class="eyebrow">CS180 · Fall 2026 · Project 2</p>
+  <h1>Fun with Filters and Frequencies</h1>
+  <p>Vikram Bhamre · UC Berkeley</p>
+  <nav>
+    <a href="#p11">1.1 Convolution</a>
+    <a href="#p12">1.2 Finite difference</a>
+    <a href="#p13">1.3 Derivative of Gaussian</a>
+    <a href="#bells">Gradient orientation</a>
+    <a href="#p21">2.1 Sharpening</a>
+    <a href="#p22">2.2 Hybrid images</a>
+    <a href="#p23">2.3 Stacks</a>
+    <a href="#p24">2.4 Blending</a>
+  </nav>
+</header>
+
+<main>
+
+<section id="p11">
+  <h2>Part 1.1 · Convolutions from scratch</h2>
+  <p>A 2D convolution slides a filter over the image and sums the products of the filter's weights and the pixels underneath. Padding is done by hand, as shown below.</p>
+  <pre><code>def pad_zero(image, kh, kw):
+    top, left = kh // 2, kw // 2
+    bottom, right = kh - 1 - top, kw - 1 - left
+    padded = np.zeros((image.shape[0] + kh - 1, image.shape[1] + kw - 1), dtype=np.float64)
+    padded[top:top + image.shape[0], left:left + image.shape[1]] = image
+    return padded
+
+def conv2d_four_loops(image, kernel):
+    kh, kw = kernel.shape
+    flipped = kernel[::-1, ::-1]
+    padded = pad_zero(image, kh, kw)
+    out = np.zeros(image.shape, dtype=np.float64)
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            total = 0.0
+            for u in range(kh):
+                for v in range(kw):
+                    total += padded[i + u, j + v] * flipped[u, v]
+            out[i, j] = total
+    return out
+
+def conv2d_two_loops(image, kernel):
+    kh, kw = kernel.shape
+    flipped = kernel[::-1, ::-1]
+    padded = pad_zero(image, kh, kw)
+    out = np.zeros(image.shape, dtype=np.float64)
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            out[i, j] = np.sum(padded[i:i + kh, j:j + kw] * flipped)
+    return out</code></pre>
+  <p>I compared both against scipy.signal.convolve2d on my photo (450×600) with a 9×9 box filter. The outputs match.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Implementation</th><th>Time</th><th>Largest difference from SciPy</th></tr>
+    <tr><td>Four loops</td><td>5.23 s</td><td>2.2e-15</td></tr>
+    <tr><td>Two loops</td><td>0.67 s</td><td>1.8e-15</td></tr>
+    <tr><td>scipy.signal.convolve2d</td><td>0.033 s</td><td></td></tr>
+  </table></div>
+  <p>Moving the inner two loops into NumPy makes the convolution about 8 times faster. SciPy is still about 20 times faster since its outer loops are compiled too.</p>
+  <p>For boundaries, I fill with zeros, so everything outside the photo counts as black. SciPy offers other options, like boundary="symm" (mirror) and "wrap". The cameraman sections below use "symm".</p>
+  <p>Here is the photo with the 9×9 box filter, then with D<sub>x</sub> and D<sub>y</sub>.</p>
+  <pre><code>def box_filter(size):
+    return np.ones((size, size)) / (size * size)</code></pre>
+  <pre><code>DX = np.array([[1.0, 0.0, -1.0]])
+DY = np.array([[1.0], [0.0], [-1.0]])</code></pre>
+  <div class="grid c4">
+<figure><img src="media/selfie_gray.jpg" alt="Grayscale input" loading="lazy"><figcaption>Grayscale input</figcaption></figure>
+<figure><img src="media/selfie_box.jpg" alt="9×9 box filter" loading="lazy"><figcaption>9×9 box filter</figcaption></figure>
+<figure><img src="media/selfie_dx.jpg" alt="Convolved with Dx" loading="lazy"><figcaption>Convolved with Dx</figcaption></figure>
+<figure><img src="media/selfie_dy.jpg" alt="Convolved with Dy" loading="lazy"><figcaption>Convolved with Dy</figcaption></figure>
+</div>
+</section>
+
+<section id="p12">
+  <h2>Part 1.2 · Finite difference operator</h2>
+  <p>I convolved the cameraman image with D<sub>x</sub> and D<sub>y</sub> to get the partial derivatives. The gradient magnitude is √(dx² + dy²). I then set a threshold to turn it into an edge image.</p>
+  <div class="grid c4">
+<figure><img src="media/cam_dx.png" alt="Partial derivative in x" loading="lazy"><figcaption>Partial derivative in x</figcaption></figure>
+<figure><img src="media/cam_dy.png" alt="Partial derivative in y" loading="lazy"><figcaption>Partial derivative in y</figcaption></figure>
+<figure><img src="media/cam_mag.png" alt="Gradient magnitude" loading="lazy"><figcaption>Gradient magnitude</figcaption></figure>
+<figure><img src="media/cam_edges.png" alt="Edges, threshold 0.25" loading="lazy"><figcaption>Edges, threshold 0.25</figcaption></figure>
+</div>
+  <p>I tried thresholds from 0.15 to 0.40 and chose 0.25. Below that, the grass fills with noise. Above that, the tripod legs break up and the coat disappears. At 0.25 the man, camera and tripod are complete and a little grass noise is left. The faint buildings in the background are mostly lost.</p>
+</section>
+
+<section id="p13">
+  <h2>Part 1.3 · Derivative of Gaussian filter</h2>
+  <p>The finite difference is noisy, so I blur first. I made the Gaussian with cv2.getGaussianKernel (σ = 2, size 13) and took an outer product to get 2D. Then I repeated Part 1.2 on the blurred image.</p>
+  <div class="grid c4">
+<figure><img src="media/cam_blur.png" alt="Blurred with G" loading="lazy"><figcaption>Blurred with G</figcaption></figure>
+<figure><img src="media/blur_dx.png" alt="dx of blurred" loading="lazy"><figcaption>dx of blurred</figcaption></figure>
+<figure><img src="media/blur_dy.png" alt="dy of blurred" loading="lazy"><figcaption>dy of blurred</figcaption></figure>
+<figure><img src="media/blur_mag.png" alt="Gradient magnitude" loading="lazy"><figcaption>Gradient magnitude</figcaption></figure>
+</div>
+  <div class="grid c2">
+<figure><img src="media/cam_edges.png" alt="Finite difference only, threshold 0.25" loading="lazy"><figcaption>Finite difference only, threshold 0.25</figcaption></figure>
+<figure><img src="media/blur_edges.png" alt="Gaussian then finite difference, threshold 0.06" loading="lazy"><figcaption>Gaussian then finite difference, threshold 0.06</figcaption></figure>
+</div>
+  <p><strong>What is different?</strong> The grass noise is gone. The edges are thicker and smoother. The buildings and the horizon now show up as clean edges. The small details in the camera and face merge together. The gradient values are smaller, so I lowered the threshold to 0.06.</p>
+  <p>Next I did it with one convolution. I convolved G with D<sub>x</sub> and D<sub>y</sub> to get the two DoG filters, and applied them to the image directly.</p>
+  <div class="grid c3">
+<figure><img src="media/gaussian.png" alt="Gaussian G" loading="lazy"><figcaption>Gaussian G</figcaption></figure>
+<figure><img src="media/dog_x.png" alt="G ∗ Dx" loading="lazy"><figcaption>G ∗ Dx</figcaption></figure>
+<figure><img src="media/dog_y.png" alt="G ∗ Dy" loading="lazy"><figcaption>G ∗ Dy</figcaption></figure>
+</div>
+  <div class="grid c4">
+<figure><img src="media/dog_dx.png" alt="dx with DoG" loading="lazy"><figcaption>dx with DoG</figcaption></figure>
+<figure><img src="media/dog_dy.png" alt="dy with DoG" loading="lazy"><figcaption>dy with DoG</figcaption></figure>
+<figure><img src="media/dog_mag.png" alt="Gradient magnitude" loading="lazy"><figcaption>Gradient magnitude</figcaption></figure>
+<figure><img src="media/dog_edges.png" alt="Edges, threshold 0.06" loading="lazy"><figcaption>Edges, threshold 0.06</figcaption></figure>
+</div>
+  <p>The result is the same as blurring first. The largest difference between the two gradient magnitude images is 1.6e-15, and the two edge images differ in 0 pixels.</p>
+</section>
+
+<section id="bells">
+  <h2>Bells and whistles · Gradient orientation</h2>
+  <p>The orientation is the angle of the vector (dx, dy) from the DoG filters. I did not use a built-in angle function. I used arctan(dy / dx), which only gives angles between −90° and 90°, and added 180° where dx is negative. Then I wrapped the result to 0° to 360°.</p>
+  <p>The angle is the hue and the gradient magnitude is the brightness, so flat areas are black. Opposite sides of an object get opposite hues, like the two sides of the coat.</p>
+  <div class="grid c2">
+<figure><img src="media/orientation.png" alt="Orientation as hue, magnitude as brightness" loading="lazy"><figcaption>Orientation as hue, magnitude as brightness</figcaption></figure>
+<figure><img src="media/orientation_wheel.png" alt="Hue for each direction" loading="lazy"><figcaption>Hue for each direction</figcaption></figure>
+</div>
+</section>
+
+<section id="p21">
+  <h2>Part 2.1 · Image sharpening</h2>
+  <p>A Gaussian blur keeps only the low frequencies. If you subtract the blur from the original, you get the high frequencies, which are the edges and fine texture. Adding extra high frequencies makes the image look sharper: sharpened = I + α (I − G ∗ I). This is one convolution with the filter (1 + α) δ − α G, where δ is the impulse filter and α is the amount.</p>
+  <p><strong>Taj Mahal</strong> (σ = 2)</p>
+  <div class="grid c3">
+<figure><img src="media/sharp_taj_original.jpg" alt="Original" loading="lazy"><figcaption>Original</figcaption></figure>
+<figure><img src="media/sharp_taj_blur.jpg" alt="Blurred" loading="lazy"><figcaption>Blurred</figcaption></figure>
+<figure><img src="media/sharp_taj_high.jpg" alt="High frequencies" loading="lazy"><figcaption>High frequencies</figcaption></figure>
+</div>
+  <div class="grid c4">
+<figure><img src="media/sharp_taj_a0.5.jpg" alt="Sharpened, α = 0.5" loading="lazy"><figcaption>Sharpened, α = 0.5</figcaption></figure>
+<figure><img src="media/sharp_taj_a1.jpg" alt="α = 1" loading="lazy"><figcaption>α = 1</figcaption></figure>
+<figure><img src="media/sharp_taj_a2.jpg" alt="α = 2" loading="lazy"><figcaption>α = 2</figcaption></figure>
+<figure><img src="media/sharp_taj_a4.jpg" alt="α = 4" loading="lazy"><figcaption>α = 4</figcaption></figure>
+</div>
+  <p>At α = 0.5 the change is small. At α = 1 and 2 the carving and the trees look clearer. At α = 4 there are halos around strong edges, like the dome against the sky, and the image looks harsh.</p>
+  <p><strong>Doe Library</strong> (my photo, σ = 3)</p>
+  <div class="grid c3">
+<figure><img src="media/sharp_library_original.jpg" alt="Original" loading="lazy"><figcaption>Original</figcaption></figure>
+<figure><img src="media/sharp_library_blur.jpg" alt="Blurred" loading="lazy"><figcaption>Blurred</figcaption></figure>
+<figure><img src="media/sharp_library_high.jpg" alt="High frequencies" loading="lazy"><figcaption>High frequencies</figcaption></figure>
+</div>
+  <div class="grid c4">
+<figure><img src="media/sharp_library_a0.5.jpg" alt="Sharpened, α = 0.5" loading="lazy"><figcaption>Sharpened, α = 0.5</figcaption></figure>
+<figure><img src="media/sharp_library_a1.jpg" alt="α = 1" loading="lazy"><figcaption>α = 1</figcaption></figure>
+<figure><img src="media/sharp_library_a2.jpg" alt="α = 2" loading="lazy"><figcaption>α = 2</figcaption></figure>
+<figure><img src="media/sharp_library_a4.jpg" alt="α = 4" loading="lazy"><figcaption>α = 4</figcaption></figure>
+</div>
+  <p><strong>Blur a sharp image, then sharpen it.</strong> I blurred the sharp library photo (σ = 2), sharpened it again (σ = 2), and compared it to the original with PSNR. Higher PSNR means closer. The crops are enlarged 2×.</p>
+  <div class="grid c4">
+<figure><img src="media/eval_original.jpg" alt="Original" loading="lazy"><figcaption>Original</figcaption></figure>
+<figure><img src="media/eval_blurred.jpg" alt="Blurred" loading="lazy"><figcaption>Blurred</figcaption></figure>
+<figure><img src="media/eval_best.jpg" alt="Sharpened, amount 2" loading="lazy"><figcaption>Sharpened, amount 2</figcaption></figure>
+<figure><img src="media/eval_strong.jpg" alt="Sharpened, amount 6" loading="lazy"><figcaption>Sharpened, amount 6</figcaption></figure>
+</div>
+  <div class="tablewrap"><table>
+    <tr><th>Compared to the original</th><th>PSNR</th></tr>
+    <tr><td>Blurred</td><td>26.45 dB</td></tr>
+    <tr><td>Sharpened, amount 0.5</td><td>27.11 dB</td></tr>
+    <tr><td>Sharpened, amount 1</td><td>27.67 dB</td></tr>
+    <tr><td>Sharpened, amount 1.5</td><td>28.08 dB</td></tr>
+    <tr><td>Sharpened, amount 2</td><td>28.27 dB</td></tr>
+    <tr><td>Sharpened, amount 3</td><td>27.96 dB</td></tr>
+    <tr><td>Sharpened, amount 4</td><td>26.91 dB</td></tr>
+    <tr><td>Sharpened, amount 6</td><td>24.21 dB</td></tr>
+  </table></div>
+  <p>Sharpening helps a bit. The best amount is 2, with 28.27 dB against 26.45 dB for the blurred image. The letters are readable again but still softer than the original. Blurring removes detail, and sharpening cannot bring it back. At amount 6 the score drops to 24.21 dB, which is worse than the blurred image, because the halos and noise count as errors.</p>
+</section>
+
+<section id="p22">
+  <h2>Part 2.2 · Hybrid images</h2>
+  <p>A hybrid image adds the low frequencies of one image to the high frequencies of another. Up close you see the high frequency image. From far away you only see the low frequency one. The low pass is a Gaussian blur. The high pass is the image minus its blur. The hybrid is the sum.</p>
+  <p>To align the images, I picked two points in each one (the eyes) and rotated, scaled and shifted each image so the points match on one canvas.</p>
+  <p>I tried σ pairs of (3, 8), (4, 12) and (6, 16), and used σ<sub>high</sub> = 4 and σ<sub>low</sub> = 12 for every hybrid. The cutoff is where the Gaussian gain falls to one half, f = √(2 ln 2) / (2πσ). That is 0.047 cycles per pixel for the high pass and 0.016 for the low pass. On a 640 pixel wide image, that is about 30 and 10 cycles across.</p>
+
+  <h3>Nutmeg and Derek, step by step</h3>
+  <p>Nutmeg gives the high frequencies and Derek gives the low ones. The starter code does it the other way, but Derek's skin is smooth and Nutmeg's fur has strong contrast, so Derek almost disappeared.</p>
+  <div class="grid c4">
+<figure><img src="media/hybrid_nutmeg_derek_high_input.jpg" alt="Nutmeg, original" loading="lazy"><figcaption>Nutmeg, original</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_low_input.jpg" alt="Derek, original" loading="lazy"><figcaption>Derek, original</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_high_aligned.jpg" alt="Nutmeg, aligned" loading="lazy"><figcaption>Nutmeg, aligned</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_low_aligned.jpg" alt="Derek, aligned" loading="lazy"><figcaption>Derek, aligned</figcaption></figure>
+</div>
+  <div class="grid c5">
+<figure><img src="media/hybrid_nutmeg_derek_high_aligned.jpg" alt="Nutmeg" loading="lazy"><figcaption>Nutmeg</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_low_aligned.jpg" alt="Derek" loading="lazy"><figcaption>Derek</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_high_filtered.jpg" alt="Nutmeg, high pass" loading="lazy"><figcaption>Nutmeg, high pass</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_low_filtered.jpg" alt="Derek, low pass" loading="lazy"><figcaption>Derek, low pass</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek.jpg" alt="Hybrid" loading="lazy"><figcaption>Hybrid</figcaption></figure>
+</div>
+  <div class="grid c5">
+<figure><img src="media/fft_high_input.jpg" alt="Nutmeg, Fourier transform" loading="lazy"><figcaption>Nutmeg, Fourier transform</figcaption></figure>
+<figure><img src="media/fft_low_input.jpg" alt="Derek" loading="lazy"><figcaption>Derek</figcaption></figure>
+<figure><img src="media/fft_high_filtered.jpg" alt="High pass" loading="lazy"><figcaption>High pass</figcaption></figure>
+<figure><img src="media/fft_low_filtered.jpg" alt="Low pass" loading="lazy"><figcaption>Low pass</figcaption></figure>
+<figure><img src="media/fft_hybrid.jpg" alt="Hybrid" loading="lazy"><figcaption>Hybrid</figcaption></figure>
+</div>
+  <p>The bottom row is the log magnitude of the Fourier transform of the grayscale images. The high pass has a dark hole in the middle, since the low frequencies are gone. The low pass is only bright near the center. The hybrid has both. The bright cross comes from the image borders.</p>
+  <div class="narrow"><figure><img src="media/hybrid_nutmeg_derek.jpg" alt="Hybrid: Nutmeg up close, Derek from far away" loading="lazy"><figcaption>Hybrid: Nutmeg up close, Derek from far away</figcaption></figure></div>
+  <p>The same hybrid at 100%, 50%, 25% and 12.5% of the size:</p>
+  <figure><img src="media/hybrid_nutmeg_derek_scales.jpg" alt="The hybrid at four sizes" loading="lazy"><figcaption>The hybrid at four sizes</figcaption></figure>
+
+  <h3>Me and the Emir of Bukhara</h3>
+  <p>My selfie gives the high frequencies and the Emir (from Project 1) gives the low ones. From far away you see the beard and turban. Up close you see my face. It only partly works, because the busy background of my selfie shows up as faint lines on the turban.</p>
+  <div class="grid c3">
+<figure><img src="media/hybrid_me_emir_high_input.jpg" alt="Me, high frequencies" loading="lazy"><figcaption>Me, high frequencies</figcaption></figure>
+<figure><img src="media/hybrid_me_emir_low_input.jpg" alt="Emir, low frequencies" loading="lazy"><figcaption>Emir, low frequencies</figcaption></figure>
+<figure><img src="media/hybrid_me_emir.jpg" alt="Hybrid" loading="lazy"><figcaption>Hybrid</figcaption></figure>
+</div>
+  <figure><img src="media/hybrid_me_emir_scales.jpg" alt="The hybrid at four sizes" loading="lazy"><figcaption>The hybrid at four sizes</figcaption></figure>
+
+  <h3>Failure: the library from two distances</h3>
+  <p>I used the two library photos from Project 0, one far away with zoom and one close up. I aligned them on the words "THE UNIVERSITY LIBRARY". It fails for two reasons. It is the same building at every size, so there is no second picture to see. Also, the perspective is different, so the columns and windows show up twice. Two points can fix rotation, scale and shift, but not perspective.</p>
+  <div class="grid c3">
+<figure><img src="media/hybrid_library_high_input.jpg" alt="Far away, high frequencies" loading="lazy"><figcaption>Far away, high frequencies</figcaption></figure>
+<figure><img src="media/hybrid_library_low_input.jpg" alt="Close up, low frequencies" loading="lazy"><figcaption>Close up, low frequencies</figcaption></figure>
+<figure><img src="media/hybrid_library.jpg" alt="Hybrid" loading="lazy"><figcaption>Hybrid</figcaption></figure>
+</div>
+  <figure><img src="media/hybrid_library_scales.jpg" alt="The hybrid at four sizes" loading="lazy"><figcaption>The hybrid at four sizes</figcaption></figure>
+
+  <h3>Bells and whistles: color</h3>
+  <div class="grid c4">
+<figure><img src="media/hybrid_nutmeg_derek_gray_both.jpg" alt="Gray in both" loading="lazy"><figcaption>Gray in both</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_color_low.jpg" alt="Color in low only" loading="lazy"><figcaption>Color in low only</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_color_high.jpg" alt="Color in high only" loading="lazy"><figcaption>Color in high only</figcaption></figure>
+<figure><img src="media/hybrid_nutmeg_derek_color_both.jpg" alt="Color in both" loading="lazy"><figcaption>Color in both</figcaption></figure>
+</div>
+  <p>Color works best in the low frequency component. Color in the high frequency component alone looks the same as no color, and color in both looks the same as color in the low one only. The average pixel difference from the gray hybrid is 0.053 with color in the low component and 0.005 with color in the high one. The high pass image has almost no color in it, and the eye does not see color in fine detail.</p>
+</section>
+
+<section id="p23">
+  <h2>Part 2.3 · Gaussian and Laplacian stacks</h2>
+  <p>A stack is a pyramid without downsampling, so every level has the full size. In the Gaussian stack, level 0 is the image and level k is the image blurred with σ = 2 · 2<sup>k−1</sup>, so σ is 2, 4, 8 and 16 for levels 1 to 4. In the Laplacian stack, each level is the difference of two neighbors, G<sub>k</sub> − G<sub>k+1</sub>. The last level is the blurriest Gaussian, so adding all the levels gives the image back. The largest error on the apple is 1.1e-16.</p>
+  <p>Levels 0 to 4 go from left to right. Band pass levels are stretched so gray means zero, each level on its own.</p>
+  <figure><img src="media/stack_apple_gaussian.jpg" alt="Apple, Gaussian stack" loading="lazy"><figcaption>Apple, Gaussian stack</figcaption></figure>
+  <figure><img src="media/stack_apple_laplacian.jpg" alt="Apple, Laplacian stack" loading="lazy"><figcaption>Apple, Laplacian stack</figcaption></figure>
+  <figure><img src="media/stack_orange_gaussian.jpg" alt="Orange, Gaussian stack" loading="lazy"><figcaption>Orange, Gaussian stack</figcaption></figure>
+  <figure><img src="media/stack_orange_laplacian.jpg" alt="Orange, Laplacian stack" loading="lazy"><figcaption>Orange, Laplacian stack</figcaption></figure>
+  <figure><img src="media/stack_mask_gaussian.jpg" alt="Gaussian stack of the mask" loading="lazy"><figcaption>Gaussian stack of the mask</figcaption></figure>
+</section>
+
+<section id="p24">
+  <h2>Part 2.4 · Multiresolution blending</h2>
+  <p>At each level I take M<sub>k</sub> L<sub>k</sub>(A) + (1 − M<sub>k</sub>) L<sub>k</sub>(B), where M<sub>k</sub> is the level of the mask's Gaussian stack, and then add up all the levels. The mask gets blurrier at each level, so fine detail switches from A to B over a few pixels and coarse colors switch over many. Each color channel is blended on its own.</p>
+
+  <h3>The oraple</h3>
+  <p>The mask is 1 on the left half, with five levels. The color version is my bells and whistles. It is more convincing than gray, because the two fruits mostly differ in hue.</p>
+  <div class="grid c2">
+<figure><img src="media/oraple_gray.jpg" alt="Gray" loading="lazy"><figcaption>Gray</figcaption></figure>
+<figure><img src="media/oraple.jpg" alt="Color" loading="lazy"><figcaption>Color</figcaption></figure>
+</div>
+  <p>Figure 3.42 recreated. The rows are level 0, level 2 and the last level. The columns are the apple times its mask, the orange times its mask, and the sum. The bottom row adds up all the levels.</p>
+  <div class="grid c3">
+<figure><img src="media/fig342_a.jpg" alt="(a) Apple, level 0" loading="lazy"><figcaption>(a) Apple, level 0</figcaption></figure>
+<figure><img src="media/fig342_b.jpg" alt="(b) Orange, level 0" loading="lazy"><figcaption>(b) Orange, level 0</figcaption></figure>
+<figure><img src="media/fig342_c.jpg" alt="(c) Sum, level 0" loading="lazy"><figcaption>(c) Sum, level 0</figcaption></figure>
+<figure><img src="media/fig342_d.jpg" alt="(d) Apple, level 2" loading="lazy"><figcaption>(d) Apple, level 2</figcaption></figure>
+<figure><img src="media/fig342_e.jpg" alt="(e) Orange, level 2" loading="lazy"><figcaption>(e) Orange, level 2</figcaption></figure>
+<figure><img src="media/fig342_f.jpg" alt="(f) Sum, level 2" loading="lazy"><figcaption>(f) Sum, level 2</figcaption></figure>
+<figure><img src="media/fig342_g.jpg" alt="(g) Apple, last level" loading="lazy"><figcaption>(g) Apple, last level</figcaption></figure>
+<figure><img src="media/fig342_h.jpg" alt="(h) Orange, last level" loading="lazy"><figcaption>(h) Orange, last level</figcaption></figure>
+<figure><img src="media/fig342_i.jpg" alt="(i) Sum, last level" loading="lazy"><figcaption>(i) Sum, last level</figcaption></figure>
+<figure><img src="media/fig342_j.jpg" alt="(j) Apple, all levels" loading="lazy"><figcaption>(j) Apple, all levels</figcaption></figure>
+<figure><img src="media/fig342_k.jpg" alt="(k) Orange, all levels" loading="lazy"><figcaption>(k) Orange, all levels</figcaption></figure>
+<figure><img src="media/fig342_l.jpg" alt="(l) Blend" loading="lazy"><figcaption>(l) Blend</figcaption></figure>
+</div>
+
+  <h3>A dock that leads to a church</h3>
+  <p>This is a horizontal seam. The top is the lake and church from one Prokudin-Gorskii photo, and the bottom is the dock from another. The mask is 1 above 62% of the height. At 55% a boat from the dock photo showed at the left edge.</p>
+  <div class="grid c3">
+<figure><img src="media/blend_dock_a.jpg" alt="Church" loading="lazy"><figcaption>Church</figcaption></figure>
+<figure><img src="media/blend_dock_b.jpg" alt="Wharf" loading="lazy"><figcaption>Wharf</figcaption></figure>
+<figure><img src="media/blend_dock_mask.jpg" alt="Mask" loading="lazy"><figcaption>Mask</figcaption></figure>
+</div>
+  <div class="narrow" style="max-width: 720px"><figure><img src="media/blend_dock.jpg" alt="Blend" loading="lazy"><figcaption>Blend</figcaption></figure></div>
+
+  <h3>My face on the Emir, with an irregular mask</h3>
+  <p>I aligned my selfie to the Emir by the eyes. The mask is an ellipse around the face. My first, bigger ellipse pulled the yellow couch from my selfie into the beard, so I made it smaller. Below the blend is the Laplacian stack of this result, in the layout of Figure 10 in the paper. The rows are level 0, level 2 and the last of six levels.</p>
+  <div class="grid c3">
+<figure><img src="media/blend_face_a.jpg" alt="My selfie, aligned" loading="lazy"><figcaption>My selfie, aligned</figcaption></figure>
+<figure><img src="media/blend_face_b.jpg" alt="Emir of Bukhara" loading="lazy"><figcaption>Emir of Bukhara</figcaption></figure>
+<figure><img src="media/blend_face_mask.jpg" alt="Mask" loading="lazy"><figcaption>Mask</figcaption></figure>
+</div>
+  <div class="narrow" style="max-width: 720px"><figure><img src="media/blend_face.jpg" alt="Blend" loading="lazy"><figcaption>Blend</figcaption></figure></div>
+  <div class="grid c3">
+<figure><img src="media/swap_a.jpg" alt="(a) Selfie, level 0" loading="lazy"><figcaption>(a) Selfie, level 0</figcaption></figure>
+<figure><img src="media/swap_b.jpg" alt="(b) Emir, level 0" loading="lazy"><figcaption>(b) Emir, level 0</figcaption></figure>
+<figure><img src="media/swap_c.jpg" alt="(c) Sum, level 0" loading="lazy"><figcaption>(c) Sum, level 0</figcaption></figure>
+<figure><img src="media/swap_d.jpg" alt="(d) Selfie, level 2" loading="lazy"><figcaption>(d) Selfie, level 2</figcaption></figure>
+<figure><img src="media/swap_e.jpg" alt="(e) Emir, level 2" loading="lazy"><figcaption>(e) Emir, level 2</figcaption></figure>
+<figure><img src="media/swap_f.jpg" alt="(f) Sum, level 2" loading="lazy"><figcaption>(f) Sum, level 2</figcaption></figure>
+<figure><img src="media/swap_g.jpg" alt="(g) Selfie, last level" loading="lazy"><figcaption>(g) Selfie, last level</figcaption></figure>
+<figure><img src="media/swap_h.jpg" alt="(h) Emir, last level" loading="lazy"><figcaption>(h) Emir, last level</figcaption></figure>
+<figure><img src="media/swap_i.jpg" alt="(i) Sum, last level" loading="lazy"><figcaption>(i) Sum, last level</figcaption></figure>
+<figure><img src="media/swap_j.jpg" alt="(j) Selfie, all levels" loading="lazy"><figcaption>(j) Selfie, all levels</figcaption></figure>
+<figure><img src="media/swap_k.jpg" alt="(k) Emir, all levels" loading="lazy"><figcaption>(k) Emir, all levels</figcaption></figure>
+<figure><img src="media/swap_l.jpg" alt="(l) Blend" loading="lazy"><figcaption>(l) Blend</figcaption></figure>
+</div>
+</section>
+
+<section id="learned">
+  <h2>What I learned</h2>
+  <p>A hybrid or a blended image is all about the frequencies, not the individual pixels in the image. If you split an image into separate bands and treat each band as its own, then one picture can morph into another at a further distance.</p>
+</section>
+
+</main>
+
+<footer>
+  CS180 Project 2, September 2026.
+</footer>
+
+</body>
+</html>
