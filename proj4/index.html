@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cs180 project 4 · image warping and mosaicing</title>
+<style>
+  :root { --bg: #faf9f6; --ink: #1b1b1b; --rule: #e3e0d9; --max: 960px; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 Georgia, "Iowan Old Style", "Times New Roman", serif; }
+  header, main, footer { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+  header { padding-top: 64px; padding-bottom: 40px; border-bottom: 1px solid var(--rule); }
+  a { color: var(--ink); }
+  .back, .eyebrow, nav, figcaption, table, footer { font-size: 15px; }
+  .back { margin: 0 0 20px; }
+  .back a { text-decoration: none; }
+  .eyebrow { margin: 0 0 16px; }
+  h1 { font-size: 40px; line-height: 1.15; font-weight: 400; margin: 0 0 12px; }
+  header p { margin: 0; }
+  nav { margin-top: 24px; }
+  nav a { text-decoration: none; margin-right: 20px; border-bottom: 1px solid var(--rule); }
+  section { padding: 56px 0; border-bottom: 1px solid var(--rule); }
+  section:last-of-type { border-bottom: 0; }
+  h2 { font-size: 28px; font-weight: 400; margin: 0 0 24px; }
+  h3 { font-size: 20px; font-weight: 400; margin: 32px 0 12px; }
+  p { margin: 0 0 16px; }
+  .grid { display: grid; gap: 20px 16px; margin: 20px 0 28px; }
+  .c2 { grid-template-columns: repeat(2, 1fr); }
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .c4 { grid-template-columns: repeat(4, 1fr); }
+  .c5 { grid-template-columns: repeat(5, 1fr); }
+  .narrow { max-width: 460px; margin: 20px auto 28px; }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 4px; background: #ddd; }
+  figcaption { margin-top: 6px; }
+  pre { overflow-x: auto; background: #fff; border: 1px solid var(--rule); border-radius: 4px; padding: 14px 16px; margin: 0 0 20px; }
+  code { font: inherit; font-size: 14px; white-space: pre; }
+  .tablewrap { overflow-x: auto; margin: 0 0 20px; }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 14px 8px 0; border-bottom: 1px solid var(--rule); font-weight: normal; white-space: nowrap; }
+  footer { padding: 40px 24px 64px; }
+  body { text-transform: lowercase; }
+  pre, code { text-transform: none; }
+  @media (max-width: 640px) { h1 { font-size: 30px; } .c3, .c4 { grid-template-columns: repeat(2, 1fr); } }
+
+  .matrix { display: inline-block; margin-right: 24px; }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="back"><a href="../">← All projects</a></p>
+  <p class="eyebrow">CS180 · Fall 2026 · Project 4A</p>
+  <h1>Image Warping and Mosaicing</h1>
+  <p>Vikram Bhamre · UC Berkeley</p>
+  <nav>
+    <a href="#a1">A.1 Pictures</a>
+    <a href="#a2">A.2 Homographies</a>
+    <a href="#a3">A.3 Warping</a>
+    <a href="#a4">A.4 Mosaics</a>
+    <a href="#a5">A.5 Cylinders</a>
+  </nav>
+</header>
+
+<main>
+<section id="a1">
+  <h2>A.1 · Shooting the pictures</h2>
+  <p>I shot everything on an iPhone main camera (26 mm equivalent), handheld, turning the phone in place between shots. Neighboring shots overlap by roughly 20 to 50 percent. Here are the three sets I used for mosaics.</p>
+  <h3>Sather Gate</h3>
+  <div class="grid c3">
+<figure><img src="media/gate_src_IMG_4048.jpg" alt="IMG_4048" loading="lazy"><figcaption>IMG_4048</figcaption></figure>
+<figure><img src="media/gate_src_IMG_4049.jpg" alt="IMG_4049 (reference)" loading="lazy"><figcaption>IMG_4049 (reference)</figcaption></figure>
+<figure><img src="media/gate_src_IMG_4050.jpg" alt="IMG_4050" loading="lazy"><figcaption>IMG_4050</figcaption></figure>
+</div>
+  <h3>Wheeler Hall and the Campanile</h3>
+  <div class="grid c3">
+<figure><img src="media/wheeler_src_IMG_4051.jpg" alt="IMG_4051" loading="lazy"><figcaption>IMG_4051</figcaption></figure>
+<figure><img src="media/wheeler_src_IMG_4052.jpg" alt="IMG_4052 (reference)" loading="lazy"><figcaption>IMG_4052 (reference)</figcaption></figure>
+<figure><img src="media/wheeler_src_IMG_4053.jpg" alt="IMG_4053" loading="lazy"><figcaption>IMG_4053</figcaption></figure>
+</div>
+  <h3>Lamp posts by Doe</h3>
+  <div class="grid c2">
+<figure><img src="media/lamps_src_IMG_4057.jpg" alt="IMG_4057 (reference)" loading="lazy"><figcaption>IMG_4057 (reference)</figcaption></figure>
+<figure><img src="media/lamps_src_IMG_4058.jpg" alt="IMG_4058" loading="lazy"><figcaption>IMG_4058</figcaption></figure>
+</div>
+  <p>The lamp set started as three photos, shot at a diagonal angle on purpose. The first one (IMG_4056) shares only a thin band of the building with the next shot, and the railing in front sits about a meter from the camera. Small hand movements shift that railing much more than the building behind it, so no single homography fits both. The fit from that thin band blew up the warp, so I left that photo out and kept the two that share the lamp and the tower.</p>
+</section>
+
+<section id="a2">
+  <h2>A.2 · Recovering homographies</h2>
+  <p>A homography maps a point (x, y) in one image to (u, v) in another:</p>
+  <pre><code>u = (h1 x + h2 y + h3) / (h7 x + h8 y + 1)
+v = (h4 x + h5 y + h6) / (h7 x + h8 y + 1)</code></pre>
+  <p>Multiplying out the denominator makes each equation linear in the eight unknowns. So each point pair gives two rows of a system Ah = b:</p>
+  <pre><code>[ x  y  1  0  0  0  -u·x  -u·y ] h = u
+[ 0  0  0  x  y  1  -v·x  -v·y ] h = v</code></pre>
+  <p>With more than four pairs the system is overdetermined, and I solve it with least squares. h9 is fixed to 1.</p>
+  <pre><code>def system(im1_pts, im2_pts):
+    rows, rhs = [], []
+    for (x, y), (u, v) in zip(im1_pts, im2_pts):
+        rows.append([x, y, 1, 0, 0, 0, -u * x, -u * y])
+        rows.append([0, 0, 0, x, y, 1, -v * x, -v * y])
+        rhs += [u, v]
+    return np.array(rows, float), np.array(rhs, float)
+
+def computeH(im1_pts, im2_pts):
+    A, b = system(im1_pts, im2_pts)
+    h = np.linalg.lstsq(A, b, rcond=None)[0]
+    return np.append(h, 1).reshape(3, 3)
+
+def apply_h(H, pts):
+    pts = np.asarray(pts, float)
+    p = np.c_[pts, np.ones(len(pts))] @ H.T
+    return p[:, :2] / p[:, 2:]</code></pre>
+  <h3>Picking the points</h3>
+  <p>I picked every point by hand. For each pair I looked at zoomed crops of the overlap with a coordinate grid drawn on, chose features that don't move and are easy to find in both images (corners of buildings and signs, the lamp heads, the spire, the urns), and wrote down where each one sits in both photos. Then a small refinement snaps the second image's point to the exact pixel. It warps the first image by the current H, compares a 25×25 patch around the feature with normalized cross-correlation in a small window, refits H, and repeats. Points on people were never used, since people walked between shots. <code>pick_points.py</code> also has a matplotlib <code>ginput</code> mode for clicking points directly.</p>
+  <pre><code>def ncc(a, b):
+    a = a - a.mean()
+    b = b - b.mean()
+    return (a * b).sum() / (np.sqrt((a * a).sum() * (b * b).sum()) + 1e-9)
+
+def snap(im1, im2, p, guess, half=12, search=30):
+    g1, g2 = im1.mean(2), im2.mean(2)
+    x, y = p
+    patch = g1[y - half:y + half + 1, x - half:x + half + 1]
+    best, where = -2, guess
+    for dy in range(-search, search + 1):
+        for dx in range(-search, search + 1):
+            u, v = guess[0] + dx, guess[1] + dy
+            window = g2[v - half:v + half + 1, u - half:u + half + 1]
+            if window.shape == patch.shape:
+                score = ncc(patch, window)
+                if score &gt; best:
+                    best, where = score, [u, v]
+    return where, best</code></pre>
+  <h3>Correspondences and recovered matrices</h3>
+  <p>Each mosaic warps the outer images into the middle (reference) image.</p>
+  <h3>IMG_4048 → IMG_4049</h3>
+<div class="grid c2">
+<figure><img src="media/gate_IMG_4048_pts.jpg" alt="IMG_4048, 8 points" loading="lazy"><figcaption>IMG_4048, 8 points</figcaption></figure>
+<figure><img src="media/gate_IMG_4049_pts.jpg" alt="IMG_4049" loading="lazy"><figcaption>IMG_4049</figcaption></figure>
+</div>
+<p>Recovered H, mapping IMG_4048 into IMG_4049. Mean leftover error 4.08 px, largest 6.47 px.</p>
+<pre class="matrix"><code>     1.3232     -0.13448      -655.16
+    0.38766       1.2567      -313.63
+   0.000355     -1.4e-05            1</code></pre>
+<h3>IMG_4050 → IMG_4049</h3>
+<div class="grid c2">
+<figure><img src="media/gate_IMG_4050_pts.jpg" alt="IMG_4050, 9 points" loading="lazy"><figcaption>IMG_4050, 9 points</figcaption></figure>
+<figure><img src="media/gate_IMG_4049_pts.jpg" alt="IMG_4049" loading="lazy"><figcaption>IMG_4049</figcaption></figure>
+</div>
+<p>Recovered H, mapping IMG_4050 into IMG_4049. Mean leftover error 2.21 px, largest 3.95 px.</p>
+<pre class="matrix"><code>     2.0235    -0.062199       814.94
+    0.68341       1.0052      -48.267
+   0.000892     -7.6e-05            1</code></pre>
+  <h3>IMG_4051 → IMG_4052</h3>
+<div class="grid c2">
+<figure><img src="media/wheeler_IMG_4051_pts.jpg" alt="IMG_4051, 6 points" loading="lazy"><figcaption>IMG_4051, 6 points</figcaption></figure>
+<figure><img src="media/wheeler_IMG_4052_pts.jpg" alt="IMG_4052" loading="lazy"><figcaption>IMG_4052</figcaption></figure>
+</div>
+<p>Recovered H, mapping IMG_4051 into IMG_4052. Mean leftover error 0.49 px, largest 1.06 px.</p>
+<pre class="matrix"><code>     1.6515     -0.14798      -742.31
+    0.58874       1.4254      -417.77
+   0.000631     -3.4e-05            1</code></pre>
+<h3>IMG_4053 → IMG_4052</h3>
+<div class="grid c2">
+<figure><img src="media/wheeler_IMG_4053_pts.jpg" alt="IMG_4053, 7 points" loading="lazy"><figcaption>IMG_4053, 7 points</figcaption></figure>
+<figure><img src="media/wheeler_IMG_4052_pts.jpg" alt="IMG_4052" loading="lazy"><figcaption>IMG_4052</figcaption></figure>
+</div>
+<p>Recovered H, mapping IMG_4053 into IMG_4052. Mean leftover error 7.15 px, largest 11.2 px.</p>
+<pre class="matrix"><code>    0.69327    -0.034882       545.39
+   -0.28094      0.67738       159.41
+    -0.0002    -0.000188            1</code></pre>
+  <h3>IMG_4058 → IMG_4057</h3>
+<div class="grid c2">
+<figure><img src="media/lamps_IMG_4058_pts.jpg" alt="IMG_4058, 7 points" loading="lazy"><figcaption>IMG_4058, 7 points</figcaption></figure>
+<figure><img src="media/lamps_IMG_4057_pts.jpg" alt="IMG_4057" loading="lazy"><figcaption>IMG_4057</figcaption></figure>
+</div>
+<p>Recovered H, mapping IMG_4058 into IMG_4057. Mean leftover error 4.02 px, largest 6.82 px.</p>
+<pre class="matrix"><code>    0.58331    -0.005633        628.7
+   -0.30704      0.78005       87.752
+  -0.000235    -0.000101            1</code></pre>
+  <p>The leftover error is a few pixels, not a fraction of one, because I held the phone by hand. The lens moved a little between shots, so nearby things (the urns, the planter, the lamp) shift by a different amount than faraway things (the trees, the Campanile). The least-squares fit splits the difference.</p>
+  <h3>The system for IMG_4058 → IMG_4057</h3>
+  <p>The full system Ah = b for the lamp pair, 7 points and 14 equations. Coordinates are in pixels of the quarter-size images.</p>
+  <pre><code>[      414       550         1         0         0         0   -423522   -562650 ]   [  1023 ]
+[        0         0         0       414       550         1   -189198   -251350 ]   [   457 ]
+[      384       620         1         0         0         0   -384384   -620620 ]   [  1001 ]
+[        0         0         0       384       620         1   -207744   -335420 ]   [   541 ]
+[      269       780         1         0         0         0   -246135   -713700 ]   [   915 ]
+[        0         0         0       269       780         1   -190990   -553800 ]   [   710 ]
+[       92       955         1         0         0         0    -70472   -731530 ]   [   766 ]
+[        0         0         0        92       955         1    -84272   -874780 ]   [   916 ]
+[      188      1140         1         0         0         0   -163748   -992940 ]   [   871 ]
+[        0         0         0       188      1140         1   -205108  -1243740 ]   [  1091 ]
+[      338      1217         1         0         0         0   -346788  -1248642 ]   [  1026 ]
+[        0         0         0       338      1217         1   -396812  -1428758 ]   [  1174 ]
+[      276      1357         1         0         0         0   -270756  -1331217 ]   [   981 ]
+[        0         0         0       276      1357         1   -366804  -1803453 ]   [  1329 ]</code></pre>
+</section>
+
+<section id="a3">
+  <h2>A.3 · Warping and rectification</h2>
+  <p>Both warps use inverse warping. I push the four image corners through H to get the output bounding box. Then, for every output pixel, H<sup>-1</sup> gives the spot in the source image to sample from. Pixel centers sit at integer coordinates. Output pixels that land outside the source get alpha 0, and that alpha later serves as the mask for blending.</p>
+  <pre><code>def bounds(images, Hs):
+    pts = np.vstack([apply_h(H, corners(im.shape)) for im, H in zip(images, Hs)])
+    x0, y0 = np.floor(pts.min(0)).astype(int)
+    x1, y1 = np.ceil(pts.max(0)).astype(int)
+    return x0, y0, x1 - x0 + 1, y1 - y0 + 1
+
+def target_grid(H, shape, box=None):
+    if box is None:
+        box = bounds([np.zeros(shape)], [H])
+    x0, y0, w, h = box
+    xs, ys = np.meshgrid(np.arange(w) + x0, np.arange(h) + y0)
+    src = apply_h(np.linalg.inv(H), np.c_[xs.ravel(), ys.ravel()])
+    return src[:, 0].reshape(h, w), src[:, 1].reshape(h, w), box
+
+def inside(im, sx, sy):
+    h, w = im.shape[:2]
+    return (sx &gt;= -0.5) &amp; (sx &lt;= w - 0.5) &amp; (sy &gt;= -0.5) &amp; (sy &lt;= h - 0.5)
+
+def sample_nn(im, sx, sy):
+    h, w = im.shape[:2]
+    xi = np.clip(np.round(sx).astype(int), 0, w - 1)
+    yi = np.clip(np.round(sy).astype(int), 0, h - 1)
+    return im[yi, xi]
+
+def sample_bilinear(im, sx, sy):
+    h, w = im.shape[:2]
+    sx = np.clip(sx, 0, w - 1)
+    sy = np.clip(sy, 0, h - 1)
+    x0 = np.minimum(np.floor(sx).astype(int), w - 2)
+    y0 = np.minimum(np.floor(sy).astype(int), h - 2)
+    a = (sx - x0)[..., None]
+    b = (sy - y0)[..., None]
+    top = im[y0, x0] * (1 - a) + im[y0, x0 + 1] * a
+    bottom = im[y0 + 1, x0] * (1 - a) + im[y0 + 1, x0 + 1] * a
+    return top * (1 - b) + bottom * b
+
+def warp(im, H, sampler, box=None):
+    sx, sy, box = target_grid(H, im.shape, box)
+    alpha = inside(im, sx, sy).astype(float)
+    out = sampler(im, sx, sy) * alpha[..., None]
+    return out, alpha, box
+
+def warpImageNearestNeighbor(im, H, box=None):
+    return warp(im, H, sample_nn, box)
+
+def warpImageBilinear(im, H, box=None):
+    return warp(im, H, sample_bilinear, box)</code></pre>
+  <p>For rectification there is only one image, so the target points come from what I know about the object. I picked the four corners of something rectangular and sent them to an upright rectangle with the object's proportions.</p>
+  <h3>Recycling bin poster</h3>
+  <div class="grid c3">
+<figure><img src="media/rect_poster_src.jpg" alt="IMG_4054 with the four corners I picked" loading="lazy"><figcaption>IMG_4054 with the four corners I picked</figcaption></figure>
+<figure><img src="media/rect_poster_nn.jpg" alt="Nearest neighbor, 0.194 s" loading="lazy"><figcaption>Nearest neighbor, 0.194 s</figcaption></figure>
+<figure><img src="media/rect_poster_bilinear.jpg" alt="Bilinear, 0.43 s" loading="lazy"><figcaption>Bilinear, 0.43 s</figcaption></figure>
+</div>
+  <div class="grid c4">
+<figure><img src="media/rect_poster_nn_crop.jpg" alt="Rectified, nearest neighbor" loading="lazy"><figcaption>Rectified, nearest neighbor</figcaption></figure>
+<figure><img src="media/rect_poster_bilinear_crop.jpg" alt="Rectified, bilinear" loading="lazy"><figcaption>Rectified, bilinear</figcaption></figure>
+<figure><img src="media/rect_poster_nn_zoom.jpg" alt="Zoom, nearest neighbor" loading="lazy"><figcaption>Zoom, nearest neighbor</figcaption></figure>
+<figure><img src="media/rect_poster_bilinear_zoom.jpg" alt="Zoom, bilinear" loading="lazy"><figcaption>Zoom, bilinear</figcaption></figure>
+</div>
+  <pre class="matrix"><code>     0.6875    -0.078832       81.853
+   -0.19281      0.69025       119.39
+  -0.000442     -7.5e-05            1</code></pre>
+  <p>The recycling logo comes out round and the text lines come out level, so the poster is now seen straight on.</p>
+  <h3>Room 190J sign</h3>
+  <div class="grid c3">
+<figure><img src="media/rect_sign_src.jpg" alt="IMG_4059 with the four corners I picked" loading="lazy"><figcaption>IMG_4059 with the four corners I picked</figcaption></figure>
+<figure><img src="media/rect_sign_nn.jpg" alt="Nearest neighbor, 0.044 s" loading="lazy"><figcaption>Nearest neighbor, 0.044 s</figcaption></figure>
+<figure><img src="media/rect_sign_bilinear.jpg" alt="Bilinear, 0.111 s" loading="lazy"><figcaption>Bilinear, 0.111 s</figcaption></figure>
+</div>
+  <div class="grid c4">
+<figure><img src="media/rect_sign_nn_crop.jpg" alt="Rectified, nearest neighbor" loading="lazy"><figcaption>Rectified, nearest neighbor</figcaption></figure>
+<figure><img src="media/rect_sign_bilinear_crop.jpg" alt="Rectified, bilinear" loading="lazy"><figcaption>Rectified, bilinear</figcaption></figure>
+<figure><img src="media/rect_sign_nn_zoom.jpg" alt="Zoom, nearest neighbor" loading="lazy"><figcaption>Zoom, nearest neighbor</figcaption></figure>
+<figure><img src="media/rect_sign_bilinear_zoom.jpg" alt="Zoom, bilinear" loading="lazy"><figcaption>Zoom, bilinear</figcaption></figure>
+</div>
+  <pre class="matrix"><code>     1.3357      0.18887      -159.36
+    0.24152       1.3217      -164.76
+   0.000293     0.000155            1</code></pre>
+  <p>I shot this one at an angle with the 5× lens (121 mm equivalent). After the warp, the sign is a rectangle and the "Slide" text under it is level as well, since it lies on the same glass plane.</p>
+  <h3>Nearest neighbor against bilinear</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Image</th><th>Output pixels</th><th>Nearest neighbor</th><th>Bilinear</th></tr>
+    <tr><td>Poster</td><td>3,943,326</td><td>0.194 s</td><td>0.43 s</td></tr>
+    <tr><td>Sign</td><td>1,076,300</td><td>0.044 s</td><td>0.111 s</td></tr>
+  </table></div>
+  <p>Nearest neighbor copies one source pixel per output pixel. It is about two to three times faster here, but slanted edges turn into stair steps. You can see this on the letters of "Berkeley" and on the 9 and 0. Bilinear reads four pixels and mixes them by distance. It costs a few more array operations per pixel, and the edges come out smooth. Both are fully vectorized with NumPy, so even bilinear takes well under a second at this size. Bilinear softens the image slightly where the warp stretches it, but I used it for every mosaic because stair steps show up much more than the slight blur.</p>
+</section>
+
+<section id="a4">
+  <h2>A.4 · Blending into a mosaic</h2>
+  <p>The procedure for each mosaic:</p>
+  <ol>
+    <li>Keep the middle photo fixed and compute H from each other photo into it.</li>
+    <li>Push every image's corners through its H to find the bounding box of the whole mosaic.</li>
+    <li>Warp every image into that box with bilinear inverse warping. Each warp also returns its alpha mask.</li>
+    <li>Give each image a weight map: the distance from each pixel to the edge of its own mask. The weight is highest in the middle of each photo and falls to 0 at its border.</li>
+    <li>Blend in two bands. The low frequencies (Gaussian blur, σ = 4) are averaged with the weights, so exposure differences fade across the whole overlap. The high frequencies come only from the image with the largest weight at each pixel, so fine detail stays sharp instead of doubling.</li>
+  </ol>
+  <pre><code>def warp_all(images, Hs):
+    box = bounds(images, Hs)
+    warped = [warpImageBilinear(im, H, box)[:2] for im, H in zip(images, Hs)]
+    return [w for w, _ in warped], [a for _, a in warped], box
+
+def feather_weights(alphas):
+    return [distance_transform_edt(a &gt; 0.5) for a in alphas]
+
+def feather(warped, weights):
+    total = sum(weights) + 1e-9
+    return sum(w * (k / total)[..., None] for w, k in zip(warped, weights))
+
+def two_band(warped, alphas, weights, sigma=4):
+    total = sum(weights) + 1e-9
+    best = np.argmax(np.stack(weights), 0)
+    low = np.zeros_like(warped[0])
+    high = np.zeros_like(warped[0])
+    for i, (w, a, k) in enumerate(zip(warped, alphas, weights)):
+        smooth = blur(w, sigma) / np.maximum(gaussian_filter(a, sigma), 1e-6)[..., None]
+        low += smooth * (k / total)[..., None]
+        high += np.where((best == i)[..., None], w - smooth, 0)
+    covered = (sum(alphas) &gt; 0.5)[..., None]
+    return np.clip(low + high, 0, 1) * covered</code></pre>
+  <h3>Why two bands</h3>
+  <div class="grid c3">
+<figure><img src="media/gate_overwrite_seam.jpg" alt="Overwrite: hard seam and a jump in brightness" loading="lazy"><figcaption>Overwrite: hard seam and a jump in brightness</figcaption></figure>
+<figure><img src="media/gate_feather_seam.jpg" alt="Weighted average: smooth, but people and leaves ghost" loading="lazy"><figcaption>Weighted average: smooth, but people and leaves ghost</figcaption></figure>
+<figure><img src="media/gate_mosaic_seam.jpg" alt="Two-band: smooth tone, sharp detail" loading="lazy"><figcaption>Two-band: smooth tone, sharp detail</figcaption></figure>
+</div>
+  <div class="grid c3">
+<figure><img src="media/wheeler_overwrite_seam.jpg" alt="Overwrite" loading="lazy"><figcaption>Overwrite</figcaption></figure>
+<figure><img src="media/wheeler_feather_seam.jpg" alt="Weighted average" loading="lazy"><figcaption>Weighted average</figcaption></figure>
+<figure><img src="media/wheeler_mosaic_seam.jpg" alt="Two-band" loading="lazy"><figcaption>Two-band</figcaption></figure>
+</div>
+  <div class="grid c2">
+<figure><img src="media/gate_weights.jpg" alt="Sather Gate weight maps, one color per image" loading="lazy"><figcaption>Sather Gate weight maps, one color per image</figcaption></figure>
+<figure><img src="media/wheeler_weights.jpg" alt="Wheeler weight maps" loading="lazy"><figcaption>Wheeler weight maps</figcaption></figure>
+</div>
+  <p>Plain overwriting leaves a visible line wherever the exposure changed between shots. A weighted average hides the line, but anything that doesn't line up exactly (people who walked, branches in the wind, the parallax above) shows up twice, faintly. Two bands keep the smooth tone of the average and pick the detail from one image. Some ghosting is still visible where a person walked across the seam itself.</p>
+  <h3>Results</h3>
+  <h3>Sather Gate</h3>
+  <p>Three photos warped into the middle one.</p>
+  <div class="grid c3">
+<figure><img src="media/gate_src_IMG_4048.jpg" alt="IMG_4048" loading="lazy"><figcaption>IMG_4048</figcaption></figure>
+<figure><img src="media/gate_src_IMG_4049.jpg" alt="IMG_4049 (reference)" loading="lazy"><figcaption>IMG_4049 (reference)</figcaption></figure>
+<figure><img src="media/gate_src_IMG_4050.jpg" alt="IMG_4050" loading="lazy"><figcaption>IMG_4050</figcaption></figure>
+</div>
+  <figure><img src="media/gate_mosaic.jpg" alt="Mosaic, 2432×1869, two-band blend" loading="lazy"><figcaption>Mosaic, 2432×1869, two-band blend</figcaption></figure>
+  <h3>Wheeler Hall and the Campanile</h3>
+  <p>Three photos covering about 115 degrees. The edges stretch a lot on a flat plane, which is what A.5 fixes.</p>
+  <div class="grid c3">
+<figure><img src="media/wheeler_src_IMG_4051.jpg" alt="IMG_4051" loading="lazy"><figcaption>IMG_4051</figcaption></figure>
+<figure><img src="media/wheeler_src_IMG_4052.jpg" alt="IMG_4052 (reference)" loading="lazy"><figcaption>IMG_4052 (reference)</figcaption></figure>
+<figure><img src="media/wheeler_src_IMG_4053.jpg" alt="IMG_4053" loading="lazy"><figcaption>IMG_4053</figcaption></figure>
+</div>
+  <figure><img src="media/wheeler_mosaic.jpg" alt="Mosaic, 3398×2119, two-band blend" loading="lazy"><figcaption>Mosaic, 3398×2119, two-band blend</figcaption></figure>
+  <h3>Lamp posts by Doe</h3>
+  <p>Two photos shot at a diagonal angle, warped into the first one.</p>
+  <div class="grid c2">
+<figure><img src="media/lamps_src_IMG_4057.jpg" alt="IMG_4057 (reference)" loading="lazy"><figcaption>IMG_4057 (reference)</figcaption></figure>
+<figure><img src="media/lamps_src_IMG_4058.jpg" alt="IMG_4058" loading="lazy"><figcaption>IMG_4058</figcaption></figure>
+</div>
+  <figure><img src="media/lamps_mosaic.jpg" alt="Mosaic, 2062×1767, two-band blend" loading="lazy"><figcaption>Mosaic, 2062×1767, two-band blend</figcaption></figure>
+</section>
+
+<section id="a5">
+  <h2>A.5 · Bells and whistles: cylindrical mosaics</h2>
+  <p>A flat mosaic stretches without bound as the view widens. Instead, I project onto a cylinder around the camera. The focal length comes from the photo metadata: 26 mm equivalent on a 43.3 mm full-frame diagonal, which is 1072.7 px for the quarter-size images. That also sets the cylinder radius.</p>
+  <p>The sampling is fully inverse. Each output pixel (θ, h) on the cylinder is a ray, which hits the reference image plane at x = f tan θ + cx, y = h / cos θ + cy. That point goes through H<sup>-1</sup> into each original photo, which is then sampled with bilinear interpolation. So every pixel is read straight from the original photos, never from an already-warped mosaic. Blending is the same two-band blend as above.</p>
+  <pre><code>def cylinder(images, Hs, f, center, weights_from=None):
+    cx, cy = center
+    planes = [np.linalg.inv(H) for H in Hs]
+    xs = []
+    for im, H in zip(images, Hs):
+        h, w = im.shape[:2]
+        edge = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1], [0, h / 2], [w - 1, h / 2]], float)
+        p = np.c_[edge, np.ones(len(edge))] @ H.T
+        xs.append(p[:, 0] / p[:, 2])
+    xs = np.concatenate(xs) - cx
+    t0, t1 = np.arctan(xs.min() / f), np.arctan(xs.max() / f)
+    width = int((t1 - t0) * f)
+    theta = t0 + np.arange(width) / f
+    heights = []
+    for im, H in zip(images, Hs):
+        h, w = im.shape[:2]
+        for y in (0, h - 1):
+            row = np.c_[np.arange(w), np.full(w, y), np.ones(w)] @ H.T
+            px, py = row[:, 0] / row[:, 2] - cx, row[:, 1] / row[:, 2] - cy
+            heights.append(py * np.cos(np.arctan(px / f)))
+    heights = np.concatenate(heights)
+    v = np.arange(int(heights.min()), int(heights.max()) + 1)
+    T, V = np.meshgrid(theta, v)
+    plane = np.stack([f * np.tan(T) + cx, V / np.cos(T) + cy, np.ones_like(T)], -1)
+    warped, alphas = [], []
+    for im, inv in zip(images, planes):
+        p = plane @ inv.T
+        sx, sy = p[..., 0] / p[..., 2], p[..., 1] / p[..., 2]
+        h, w = im.shape[:2]
+        a = ((sx &gt;= -0.5) &amp; (sx &lt;= w - 0.5) &amp; (sy &gt;= -0.5) &amp; (sy &lt;= h - 0.5)).astype(float)
+        warped.append(sample_bilinear(im, sx, sy) * a[..., None])
+        alphas.append(a)
+    return warped, alphas</code></pre>
+  <div class="grid c2">
+<figure><img src="media/wheeler_mosaic.jpg" alt="Wheeler, planar" loading="lazy"><figcaption>Wheeler, planar</figcaption></figure>
+<figure><img src="media/wheeler_cylinder.jpg" alt="Wheeler, cylindrical" loading="lazy"><figcaption>Wheeler, cylindrical</figcaption></figure>
+</div>
+  <div class="grid c2">
+<figure><img src="media/gate_mosaic.jpg" alt="Sather Gate, planar" loading="lazy"><figcaption>Sather Gate, planar</figcaption></figure>
+<figure><img src="media/gate_cylinder.jpg" alt="Sather Gate, cylindrical" loading="lazy"><figcaption>Sather Gate, cylindrical</figcaption></figure>
+</div>
+  <div class="grid c2">
+<figure><img src="media/lamps_mosaic.jpg" alt="Lamps, planar" loading="lazy"><figcaption>Lamps, planar</figcaption></figure>
+<figure><img src="media/lamps_cylinder.jpg" alt="Lamps, cylindrical" loading="lazy"><figcaption>Lamps, cylindrical</figcaption></figure>
+</div>
+  <p>The Wheeler panorama gains the most. The plaza no longer fans out at the edges, and the lamp posts on the left and right keep a sensible size. The price is that straight horizontal lines bend into curves, which is easiest to see on the lamp set, where the camera was tilted.</p>
+</section>
+</main>
+
+<footer>
+  CS180 Project 4A, October 2026. All homography, warping, interpolation and blending code is my own (NumPy, plus SciPy for the Gaussian blur and the distance transform).
+</footer>
+
+</body>
+</html>
